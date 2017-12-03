@@ -11,9 +11,11 @@ class MoviesController < ApplicationController
   end
 
   def index
+    @all_ratings = Movie.ratings
     @sort_date = ''
     @sort_title = ''
     sort_field = params[:sort]
+    @rating_filters = params[:ratings].nil? ? @all_ratings : params[:ratings].keys
     if sort_field == 'title'
       @movies = Movie.order :title
       @sort_title = 'hilite'
@@ -21,7 +23,7 @@ class MoviesController < ApplicationController
       @movies = Movie.order :release_date
       @sort_date = 'hilite'
     else
-      @movies = Movie.all
+      @movies = @rating_filters.count > 0 ? Movie.where(rating: @rating_filters) : Movie.all
     end
 
   end
