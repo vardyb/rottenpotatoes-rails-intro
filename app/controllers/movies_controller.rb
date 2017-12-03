@@ -12,20 +12,18 @@ class MoviesController < ApplicationController
 
   def index
     @all_ratings = Movie.ratings
-    @sort_date = ''
-    @sort_title = ''
-    sort_field = params[:sort]
-    @rating_filters = params[:ratings].nil? ? @all_ratings : params[:ratings].keys
-    if sort_field == 'title'
-      @movies = Movie.order :title
+    check_params
+    setup_filters
+    setup_sorting
+    if @sort_field == 'title'
+      @movies = Movie.where(rating: @rating_filters).order :title
       @sort_title = 'hilite'
-    elsif sort_field == 'release_date'
-      @movies = Movie.order :release_date
+    elsif @sort_field == 'release_date'
+      @movies = Movie.where(rating: @rating_filters).order :release_date
       @sort_date = 'hilite'
     else
-      @movies = @rating_filters.count > 0 ? Movie.where(rating: @rating_filters) : Movie.all
+      @movies = Movie.where(rating: @rating_filters)
     end
-
   end
 
   def new
@@ -54,6 +52,59 @@ class MoviesController < ApplicationController
     @movie.destroy
     flash[:notice] = "Movie '#{@movie.title}' deleted."
     redirect_to movies_path
+  end
+
+  private
+
+  def setup_filters
+    @rating_filters = params[:ratings].nil? ? [] : params[:ratings].keys
+    if @rating_filters.count > 0
+      session[:filters] = @rating_filters
+    else
+      if session[:filters].nil? || session[:filters].count < 1
+        session[:filters] = @all_ratings
+        @rating_filters = @all_ratings
+      else
+        @rating_filters = session[:filters]
+      end
+    end
+  end
+
+  def setup_sorting
+    @sort_date = ''
+    @sort_title = ''
+    if params[:sort].nil?
+      if session[:sort].nil?
+        session[:sort] = ''
+        @sort_field = ''
+      else
+        @sort_field = session[:sort]
+      end
+    else
+      session[:sort] = params[:sort]
+      @sort_field = params[:sort]
+    end
+  end
+
+  def get_params
+    temp_ratings = {}
+    session[:filters].map {|rating| temp_ratings[rating.to_sym] = '1' }
+    ratings = {:ratings => temp_ratings}.to_query
+    settings = {
+        :utf8 => '✓',
+        :commit => 'Refresh',
+        :sort => session[:sort]
+    }.to_query
+    "#{settings}&#{ratings}"
+  end
+
+  def check_params
+    if params[:ratings].nil? || params[:sort].nil?
+      setup_filters
+      setup_sorting
+      flash.keep
+      redirect_to movies_url + '?' + get_params
+    end
   end
 
 end
